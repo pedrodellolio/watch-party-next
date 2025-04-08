@@ -4,6 +4,7 @@ import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { CreateRoomFormData } from "@/schemas/create-room-schema";
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
@@ -15,7 +16,7 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect(
       "error",
       "/sign-up",
-      "Email and password are required",
+      "Email and password are required"
     );
   }
 
@@ -34,7 +35,7 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect(
       "success",
       "/sign-up",
-      "Thanks for signing up! Please check your email for a verification link.",
+      "Thanks for signing up! Please check your email for a verification link."
     );
   }
 };
@@ -53,7 +54,7 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", error.message);
   }
 
-  return redirect("/(protected)");
+  return redirect("/home");
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {
@@ -67,7 +68,7 @@ export const forgotPasswordAction = async (formData: FormData) => {
   }
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/auth/callback?redirect_to=/(protected)/reset-password`,
+    redirectTo: `${origin}/auth/callback?redirect_to=/reset-password`,
   });
 
   if (error) {
@@ -75,7 +76,7 @@ export const forgotPasswordAction = async (formData: FormData) => {
     return encodedRedirect(
       "error",
       "/forgot-password",
-      "Could not reset password",
+      "Could not reset password"
     );
   }
 
@@ -86,7 +87,7 @@ export const forgotPasswordAction = async (formData: FormData) => {
   return encodedRedirect(
     "success",
     "/forgot-password",
-    "Check your email for a link to reset your password.",
+    "Check your email for a link to reset your password."
   );
 };
 
@@ -99,17 +100,13 @@ export const resetPasswordAction = async (formData: FormData) => {
   if (!password || !confirmPassword) {
     encodedRedirect(
       "error",
-      "/(protected)/reset-password",
-      "Password and confirm password are required",
+      "/reset-password",
+      "Password and confirm password are required"
     );
   }
 
   if (password !== confirmPassword) {
-    encodedRedirect(
-      "error",
-      "/(protected)/reset-password",
-      "Passwords do not match",
-    );
+    encodedRedirect("error", "/reset-password", "Passwords do not match");
   }
 
   const { error } = await supabase.auth.updateUser({
@@ -117,18 +114,55 @@ export const resetPasswordAction = async (formData: FormData) => {
   });
 
   if (error) {
-    encodedRedirect(
-      "error",
-      "/(protected)/reset-password",
-      "Password update failed",
-    );
+    encodedRedirect("error", "/reset-password", "Password update failed");
   }
 
-  encodedRedirect("success", "/(protected)/reset-password", "Password updated");
+  encodedRedirect("success", "/reset-password", "Password updated");
 };
 
 export const signOutAction = async () => {
   const supabase = await createClient();
   await supabase.auth.signOut();
   return redirect("/sign-in");
+};
+
+export const createRoom = async (formData: CreateRoomFormData) => {
+  const supabase = await createClient();
+  const code = await generateUniqueCode(formData.name);
+  const { error } = await supabase
+    .from("rooms")
+    .insert({ name: formData.name, code });
+
+  if (error) throw error;
+
+  return code;
+};
+
+const generateUniqueCode = async (input: string) => {
+  // Generate a random string
+  const randomString = Math.random().toString(36).substring(2, 8);
+
+  // Combine input string with the random string
+  const combinedString = input + randomString;
+
+  // Encode the combined string to a Uint8Array
+  const encoder = new TextEncoder();
+  const data = encoder.encode(combinedString);
+
+  // Hash the data using SHA-256
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+  // Convert the hash to a byte array
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+  // Convert the byte array to a hexadecimal string
+  const hashHex = hashArray
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  // Convert the hexadecimal string to a base-36 string
+  const hashBase36 = BigInt("0x" + hashHex).toString(36);
+
+  // Return the first 6 characters of the base-36 string
+  return hashBase36.substring(0, 6).toUpperCase();
 };

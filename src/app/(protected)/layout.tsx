@@ -16,5 +16,5 @@ export default async function ProtectedLayout({
     return redirect("/sign-in");
   }
 
-  return { children };
+  return <>{children}</>;
 }
