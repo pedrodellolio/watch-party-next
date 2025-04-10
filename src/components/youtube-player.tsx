@@ -1,42 +1,57 @@
-// components/YouTubePlayer.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
+import React, { RefObject } from "react";
+import dynamic from "next/dynamic";
 
-interface YouTubePlayerProps {
-  videoId: string;
-  width?: string;
-  height?: string;
+// Dynamically import ReactPlayer to prevent SSR issues
+const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
+
+interface Props {
+  socketRef: RefObject<WebSocket | null>;
+  url: string;
+  playing: boolean;
+  handleRequest: (action: string, message: string) => void;
 }
 
-const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
-  videoId,
-  width = "100%",
-  height = "390",
-}) => {
-  const playerRef = useRef<HTMLDivElement>(null);
+const VideoPlayer = ({ url, playing, handleRequest }: Props) => {
+  const handlePlay = () => {
+    handleRequest("command", "/play");
+  };
 
-  useEffect(() => {
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    const firstScriptTag = document.getElementsByTagName("script")[0];
-    firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+  const handlePause = () => {
+    handleRequest("command", "/pause");
+  };
 
-    (window as any).onYouTubeIframeAPIReady = () => {
-      new (window as any).YT.Player(playerRef.current, {
-        height,
-        width,
-        videoId,
-        events: {
-          onReady: (event: any) => {
-            event.target.playVideo();
-          },
-        },
-      });
-    };
-  }, [videoId, width, height]);
+  // const handleEnded = () => {
+  //   sendMessage("message");
+  // };
 
-  return <div ref={playerRef} />;
+  // const handleProgress = (state: OnProgressProps) => {
+  //   console.log(state);
+  //   // Optionally, send progress updates through WebSocket if needed
+  //   // socketRef.current?.send(
+  //   //   JSON.stringify({
+  //   //     action: "progress",
+  //   //     roomCode: data.code,
+  //   //     username: "Pedro",
+  //   //     progress: state.playedSeconds,
+  //   //   })
+  //   // );
+  // };
+
+  return (
+    <div className="video-player border rounded-md p-6">
+      <ReactPlayer
+        url={url}
+        width={"100%"}
+        height={440}
+        onPlay={handlePlay}
+        onPause={handlePause}
+        // onEnded={handleEnded}
+        playing={playing}
+      />
+    </div>
+  );
 };
 
-export default YouTubePlayer;
+export default VideoPlayer;

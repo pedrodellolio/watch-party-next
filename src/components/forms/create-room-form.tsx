@@ -18,9 +18,9 @@ import { Input } from "../ui/input";
 import { SubmitButton } from "../submit-button";
 import { useMutation } from "@tanstack/react-query";
 import { createRoom } from "@/app/actions";
-import { redirect } from "next/navigation";
-
+import { useRouter } from "next/navigation";
 export function CreateRoomForm() {
+  const router = useRouter();
   const form = useForm<CreateRoomFormData>({
     resolver: zodResolver(createRoomSchema),
     defaultValues: {
@@ -31,11 +31,12 @@ export function CreateRoomForm() {
   const { mutateAsync } = useMutation({
     mutationFn: createRoom,
     onSuccess: (data) => {
-      redirect(`/room/${data}`);
+      router.push(`/room/${data}`);
     },
     onError: (error) => {
       console.error(error.message);
     },
+    throwOnError: false,
   });
 
   const onSubmit = (data: CreateRoomFormData) => {
