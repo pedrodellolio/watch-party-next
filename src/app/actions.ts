@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { CreateRoomFormData } from "@/schemas/create-room-schema";
 
 export const signUpAction = async (formData: FormData) => {
+  const username = formData.get("username")?.toString();
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const supabase = await createClient();
@@ -25,6 +26,9 @@ export const signUpAction = async (formData: FormData) => {
     password,
     options: {
       emailRedirectTo: `${origin}/auth/callback`,
+      data: {
+        name: username?.trim().toUpperCase(),
+      },
     },
   });
 

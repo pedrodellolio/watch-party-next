@@ -38,23 +38,22 @@ export default function RoomContent({ data }: Props) {
   const [logs, setLogs] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentVideoUrl, setCurrentVideoUrl] = useState(
-    "https://www.youtube.com/watch?v=-Lhx0yTjSac&pp=0gcJCX4JAYcqIYzv"
-  );
+  const [currentVideoUrl, setCurrentVideoUrl] = useState("");
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+  const [fallbackMessage, setFallbackMessage] = useState("");
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
-
   const { setCurrentRoomCode } = useRoom();
   const { user } = useAuth();
+
   const {
     sendMessage,
     lastMessage: response,
     readyState,
   } = useWebSocket(
-    `ws://localhost:5076/ws?room=${data.code}${
-      user && `&username=${user.email}&userId=${user.id}`
-    }`,
+    `ws://e8ba-2804-13c-219-dc00-e902-4253-571a-c8c9.ngrok-free.app/ws?room=${
+      data.code
+    }${user && `&userId=${user.id}`}`,
     {
       shouldReconnect: () => true,
       reconnectInterval: 3000,
@@ -73,18 +72,33 @@ export default function RoomContent({ data }: Props) {
 
   useEffect(() => {
     if (response !== null) {
+      console.log(response.data);
       const data = JSON.parse(response.data);
-      if (data.message) log(data);
+      if (data.message && data.type !== "ACTION") log(data);
 
       if (data.type === "CURRENT_VIDEO") {
         setCurrentVideoUrl(data.message);
         setIsPlaying(true);
       }
-      if (data.type === "ROOM_INFO") setUsersJoined(data.users);
+      if (data.type === "ROOM_INFO") {
+        // console.log(data.currentVideoPlaybackTime);
+        setUsersJoined(data.users);
+        // setCurrentVideoUrl(data.videos[0]);
+        // setCurrentPlaybackTime(data.currentVideoPlaybackTime);
+        // if (data.isVideoPlaying)
+        //   setFallbackMessage("Wait for the next video to start");
+      }
       if (data.type === "COMMAND") {
-        if (data.message === "/play") setIsPlaying(true);
+        if (data.message === "/play") {
+          setCurrentVideoUrl(data.response);
+          setIsPlaying(true);
+        }
         if (data.message === "/pause") setIsPlaying(false);
       }
+      if (data.type === "ACTION")
+        if (data.message === "NOW_PLAYING") {
+          setCurrentVideoUrl(data.data);
+        }
     }
   }, [response]);
 
@@ -98,11 +112,15 @@ export default function RoomContent({ data }: Props) {
     }
   }, [logs]);
 
+  // useEffect(() => {
+  //   setIsPlaying(true);
+  // }, [currentVideoUrl]);
+
   const log = (data: any) => {
     console.log(data.message);
     let msg = `[${new Date(data.date).toLocaleTimeString()}]`;
     if (data.from) msg += ` ${data.from}:`;
-    msg += ` ${data.message}`;
+    msg += ` ${data.message.replace(/\n/g, "<br>")}`;
     setLogs((prevState) => [...prevState, msg]);
   };
 
@@ -130,13 +148,14 @@ export default function RoomContent({ data }: Props) {
     send(action, input);
     setInput("");
   };
+
   return (
     <div className="p-6">
       <div className="flex justify-start items-center flex-row mb-8 gap-4">
         <p className="border rounded-md p-2 px-4 w-auto">{data.name}</p>
 
         <div className="flex flex-row">
-          {usersJoined.map((u, i) => (
+          {usersJoined.slice(0, 4).map((u, i) => (
             <TooltipProvider key={i}>
               <Tooltip>
                 <TooltipTrigger>
@@ -153,52 +172,56 @@ export default function RoomContent({ data }: Props) {
               </Tooltip>
             </TooltipProvider>
           ))}
-          <Avatar className="border-2 border-[#09090b] -mx-1">
-            <AvatarImage src="" alt="@shadcn" />
-            <AvatarFallback className="text-xs">+2</AvatarFallback>
-          </Avatar>
+
+          {usersJoined.length > 4 && (
+            <Avatar className="border-2 border-[#09090b] -mx-1">
+              <AvatarImage src="" alt="@shadcn" />
+              <AvatarFallback className="text-xs">
+                +{usersJoined.length - 4}
+              </AvatarFallback>
+            </Avatar>
+          )}
         </div>
       </div>
 
-      <VideoPlayer
-        url={currentVideoUrl}
-        socketRef={socketRef}
-        playing={isPlaying}
-        handleRequest={send}
-      />
-      {/* <Button
-        onClick={() =>
-          setCurrentVideoUrl("https://www.youtube.com/watch?v=YiFLwjFI4S4")
-        }
-      >
-        Change video
-      </Button> */}
+      <div className="flex flex-row justify-between gap-4">
+        <div className="w-[800px] relative border rounded-md p-6 text-sm text-muted-foreground">
+          <Button
+            size="sm"
+            variant={"outline"}
+            className="text-xs absolute top-4 right-6 z-10 h-6"
+            onClick={() => setLogs([])}
+          >
+            Clear
+          </Button>
 
-      <div className="relative mt-8 border rounded-md p-6 text-sm text-muted-foreground">
-        <Button
-          size="sm"
-          variant={"outline"}
-          className="text-xs absolute top-4 right-10 z-10 h-6"
-          onClick={() => setLogs([])}
-        >
-          Clear
-        </Button>
+          <div
+            ref={bottomRef}
+            className="h-[540px] overflow-y-scroll mb-6 mt-8"
+          >
+            {logs.map((log, i) => (
+              <div key={i} dangerouslySetInnerHTML={{ __html: log }} />
+            ))}
+          </div>
 
-        <div ref={bottomRef} className="h-48 overflow-y-scroll mb-4">
-          {logs.map((log, i) => (
-            <p key={i}>{log}</p>
-          ))}
+          <form onSubmit={handleSubmit}>
+            <Input
+              type="text"
+              className="placeholder:text-muted-foreground/50"
+              placeholder="Send a message..."
+              onChange={handleChange}
+              value={input}
+            />
+          </form>
         </div>
-
-        <form onSubmit={handleSubmit}>
-          <Input
-            type="text"
-            className="placeholder:text-muted-foreground/50"
-            placeholder="Send a message..."
-            onChange={handleChange}
-            value={input}
-          />
-        </form>
+        <VideoPlayer
+          url={currentVideoUrl}
+          playing={isPlaying}
+          setPlaying={setIsPlaying}
+          playbackTime={currentPlaybackTime}
+          handleRequest={send}
+          fallbackMessage={fallbackMessage}
+        />
       </div>
     </div>
   );
