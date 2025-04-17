@@ -14,9 +14,10 @@ interface Props {
 
 export default function RoomContent({ data }: Props) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentVideoUrl, setCurrentVideoUrl] = useState("");
+  const [currentVideo, setCurrentVideo] = useState<Video>();
   const [socketUrl, setSocketUrl] = useState<string | null>(null);
   const [users, setUsers] = useState<string[]>([]);
+  const [currentProgress, setCurrentProgress] = useState(0);
 
   const { setCurrentRoomCode, logs, pushLog } = useRoom();
   const { user } = useAuth();
@@ -56,13 +57,18 @@ export default function RoomContent({ data }: Props) {
       if (data.type == "COMMAND") {
         if (data.response === "/users") setUsers(data.content);
         if (data.response === "/play") {
-          if (data.content[0] !== "") setCurrentVideoUrl(data.content[0]);
+          if (data.content[0] !== "")
+            setCurrentVideo(JSON.parse(data.content[0]));
           setIsPlaying(true);
         }
         if (data.response === "/pause") setIsPlaying(false);
         if (data.response === "/skip") {
-          setCurrentVideoUrl(`${data.content[0]}?forceUpdate=${data.date}`);
-          setIsPlaying(true);
+          if (data.content.length > 0) {
+            const video = JSON.parse(data.content[0]);
+            video.url += `?forceUpdate=${data.date}`;
+            setCurrentVideo(video);
+            setIsPlaying(true);
+          }
         }
       }
       if (data.type === "SYSTEM") pushLog(data);
@@ -86,11 +92,13 @@ export default function RoomContent({ data }: Props) {
   return (
     <div className="p-6">
       <RoomHeader users={users} roomName={data.name} />
-      <div className="mt-6 flex flex-col-reverse xl:flex-row justify-between gap-4">
+      <div className="mt-6 flex flex-col-reverse xl:flex-row-reverse justify-between gap-4">
         <ChatBox logs={logs} setLogs={pushLog} send={send} />
         <VideoPlayer
+          currentProgress={currentProgress}
+          setCurrentProgress={setCurrentProgress}
           isPlaying={isPlaying}
-          videoUrl={currentVideoUrl}
+          video={currentVideo}
           send={send}
         />
       </div>

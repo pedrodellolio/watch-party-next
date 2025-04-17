@@ -19,8 +19,8 @@ export function CreateRoomDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create a new room</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-foreground">Create a new room</DialogTitle>
+          <DialogDescription className="text-foreground/50">
             Give your room a name and share it with your friends.
           </DialogDescription>
         </DialogHeader>

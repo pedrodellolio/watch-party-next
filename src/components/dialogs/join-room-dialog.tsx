@@ -1,5 +1,3 @@
-import { Copy } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +16,7 @@ export function JoinRoomDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">
+        <Button variant="default" className="w-full">
           Join a Room
         </Button>
       </DialogTrigger>
@@ -37,7 +35,7 @@ export function JoinRoomDialog() {
         </div>
         <DialogFooter className="sm:justify-start">
           <DialogClose asChild>
-            <Button type="button" variant="secondary">
+            <Button type="button" variant="default">
               Join
             </Button>
           </DialogClose>

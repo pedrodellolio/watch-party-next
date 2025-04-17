@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Commands } from "@/models/commands";
 import { SendIcon } from "lucide-react";
+import { Card } from "./ui/card";
 
 type Props = {
   logs: string[];
@@ -58,11 +59,11 @@ export default function ChatBox({ logs, setLogs, send }: Props) {
   };
 
   return (
-    <div className="w-full xl:w-[800px] relative border rounded-md p-6 text-sm text-muted-foreground">
+    <Card className="w-full xl:w-[800px] relative p-6 text-sm">
       <Button
         size="sm"
-        variant={"outline"}
-        className="text-xs absolute top-4 right-6 z-10 h-6 cursor-pointer"
+        variant={"default"}
+        className="text-xs absolute top-4 right-6 z-10 cursor-pointer"
         onClick={() => setLogs([])}
       >
         Clear
@@ -70,48 +71,48 @@ export default function ChatBox({ logs, setLogs, send }: Props) {
 
       <div className="h-[540px] overflow-y-scroll mb-6 mt-8">
         {logs.map((log, i) => (
-          <div key={i} dangerouslySetInnerHTML={{ __html: log }} />
+          <div
+            className="text-foreground"
+            key={i}
+            dangerouslySetInnerHTML={{ __html: log }}
+          />
         ))}
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="relative w-full">
+        <div className="w-full flex flex-row items-center gap-2">
           <Input
             type="text"
-            className="placeholder:text-muted-foreground/50 h-12"
             placeholder="Send a message..."
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onBlur={() => setOptions([])}
             value={input}
           />
-          <Button
-            type="submit"
-            variant="outline"
-            size="icon"
-            className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-white p-1.5 rounded-full hover:bg-gray-700 transition h-8 w-8"
-          >
+          <Button type="submit" size="icon">
             <SendIcon className="mr-0.5" />
           </Button>
         </div>
 
-        <ul
-          className={`absolute bg-gray-800 w-32 p-1 px-2 rounded-md mt-1 overflow-scroll ${
+        <Card
+          className={`absolute bg-main w-32 p-1 px-2 rounded-md mt-1 overflow-scroll ${
             options.length === 0 && "hidden"
           }`}
         >
-          {options.map((op, i) => (
-            <li
-              key={i}
-              className={`mb-1 px-1 rounded ${
-                i === currentSelectedIndex ? "bg-gray-600 text-white" : ""
-              }`}
-            >
-              {op}
-            </li>
-          ))}
-        </ul>
+          <ul>
+            {options.map((op, i) => (
+              <li
+                key={i}
+                className={`mb-1 px-1 rounded text-main-foreground ${
+                  i === currentSelectedIndex ? "bg-secondary-background/25 text-main-foreground" : ""
+                }`}
+              >
+                {op}
+              </li>
+            ))}
+          </ul>
+        </Card>
       </form>
-    </div>
+    </Card>
   );
 }
