@@ -1,64 +1,45 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Input } from "./ui/input";
 import { useAuth } from "@/contexts/user-context";
-import VideoPlayer from "./youtube-player";
 import { useRoom } from "@/contexts/room-context";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./ui/tooltip";
 import useWebSocket from "react-use-websocket";
 import { Button } from "./ui/button";
+import dynamic from "next/dynamic";
+
+const ReactPlayer = dynamic(() => import("react-player/lazy"), { ssr: false });
 
 interface Props {
   data: Room;
 }
 
-interface User {
-  name: string;
-  avatarUrl: string;
-}
-
-enum ResponseType {
-  DIRECT = "direct",
-  BROADCAST = "broadcast",
-  USER_LIST = "user_list",
-  ERROR = "error",
-  COMMAND = "command",
-  SYSTEM = "system",
-}
-
 export default function RoomContent({ data }: Props) {
-  const [usersJoined, setUsersJoined] = useState<User[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState("");
-  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
-  const [fallbackMessage, setFallbackMessage] = useState("");
+  const [socketUrl, setSocketUrl] = useState<string | null>(null);
 
-  const bottomRef = useRef<HTMLDivElement | null>(null);
   const { setCurrentRoomCode } = useRoom();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      setSocketUrl(
+        `ws://localhost:5076/ws?room=${data.code}&userId=${user.id}`
+      );
+    }
+  }, [user, data.code]);
 
   const {
     sendMessage,
     lastMessage: response,
     readyState,
-  } = useWebSocket(
-    `ws://e8ba-2804-13c-219-dc00-e902-4253-571a-c8c9.ngrok-free.app/ws?room=${
-      data.code
-    }${user && `&userId=${user.id}`}`,
-    {
-      shouldReconnect: () => true,
-      reconnectInterval: 3000,
-    }
-  );
+  } = useWebSocket(socketUrl, {
+    shouldReconnect: () => true,
+    reconnectInterval: 3000,
+  });
 
   useEffect(() => {
     const keepAliveInterval = setInterval(() => {
@@ -72,33 +53,22 @@ export default function RoomContent({ data }: Props) {
 
   useEffect(() => {
     if (response !== null) {
-      console.log(response.data);
       const data = JSON.parse(response.data);
-      if (data.message && data.type !== "ACTION") log(data);
+      console.debug(data);
 
-      if (data.type === "CURRENT_VIDEO") {
-        setCurrentVideoUrl(data.message);
-        setIsPlaying(true);
-      }
-      if (data.type === "ROOM_INFO") {
-        // console.log(data.currentVideoPlaybackTime);
-        setUsersJoined(data.users);
-        // setCurrentVideoUrl(data.videos[0]);
-        // setCurrentPlaybackTime(data.currentVideoPlaybackTime);
-        // if (data.isVideoPlaying)
-        //   setFallbackMessage("Wait for the next video to start");
-      }
-      if (data.type === "COMMAND") {
-        if (data.message === "/play") {
-          setCurrentVideoUrl(data.response);
+      if (data.type == "COMMAND") {
+        if (data.response == "/play") {
+          if (data.content[0] !== "") setCurrentVideoUrl(data.content[0]);
           setIsPlaying(true);
         }
-        if (data.message === "/pause") setIsPlaying(false);
-      }
-      if (data.type === "ACTION")
-        if (data.message === "NOW_PLAYING") {
-          setCurrentVideoUrl(data.data);
+        if (data.response === "/pause") setIsPlaying(false);
+        if (data.response === "/skip") {
+          setCurrentVideoUrl(`${data.content[0]}?forceUpdate=${data.date}`);
+          setIsPlaying(true);
         }
+      }
+      if (data.type == "SYSTEM") log(data);
+      if (data.type == "MESSAGE") log(data);
     }
   }, [response]);
 
@@ -106,21 +76,11 @@ export default function RoomContent({ data }: Props) {
     setCurrentRoomCode(data.code);
   }, [data]);
 
-  useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollTop = bottomRef.current.scrollHeight;
-    }
-  }, [logs]);
-
-  // useEffect(() => {
-  //   setIsPlaying(true);
-  // }, [currentVideoUrl]);
-
   const log = (data: any) => {
-    console.log(data.message);
+    if (data.silent) return;
     let msg = `[${new Date(data.date).toLocaleTimeString()}]`;
     if (data.from) msg += ` ${data.from}:`;
-    msg += ` ${data.message.replace(/\n/g, "<br>")}`;
+    if (data.message) msg += ` ${data.message.replace(/\n/g, "<br>")}`;
     setLogs((prevState) => [...prevState, msg]);
   };
 
@@ -128,9 +88,6 @@ export default function RoomContent({ data }: Props) {
     sendMessage(
       JSON.stringify({
         action: action,
-        roomCode: data.code,
-        username: user?.email,
-        userId: user?.id,
         message: message,
       })
     );
@@ -149,43 +106,14 @@ export default function RoomContent({ data }: Props) {
     setInput("");
   };
 
+  const handlePlay = () => {
+    if (!isPlaying) send("command", "/play");
+  };
+
   return (
     <div className="p-6">
-      <div className="flex justify-start items-center flex-row mb-8 gap-4">
-        <p className="border rounded-md p-2 px-4 w-auto">{data.name}</p>
-
-        <div className="flex flex-row">
-          {usersJoined.slice(0, 4).map((u, i) => (
-            <TooltipProvider key={i}>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Avatar className="cursor-pointer border-2 border-[#09090b] -mx-1">
-                    <AvatarImage src="" alt="@shadcn" />
-                    <AvatarFallback className="text-xs">
-                      {u.name[0].toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{u.name}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ))}
-
-          {usersJoined.length > 4 && (
-            <Avatar className="border-2 border-[#09090b] -mx-1">
-              <AvatarImage src="" alt="@shadcn" />
-              <AvatarFallback className="text-xs">
-                +{usersJoined.length - 4}
-              </AvatarFallback>
-            </Avatar>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-row justify-between gap-4">
-        <div className="w-[800px] relative border rounded-md p-6 text-sm text-muted-foreground">
+      <div className="flex flex-col-reverse flex-md-row justify-between gap-4">
+        <div className="w-full w-md-[800px] relative border rounded-md p-6 text-sm text-muted-foreground">
           <Button
             size="sm"
             variant={"outline"}
@@ -195,10 +123,7 @@ export default function RoomContent({ data }: Props) {
             Clear
           </Button>
 
-          <div
-            ref={bottomRef}
-            className="h-[540px] overflow-y-scroll mb-6 mt-8"
-          >
+          <div className="h-[540px] overflow-y-scroll mb-6 mt-8">
             {logs.map((log, i) => (
               <div key={i} dangerouslySetInnerHTML={{ __html: log }} />
             ))}
@@ -214,14 +139,18 @@ export default function RoomContent({ data }: Props) {
             />
           </form>
         </div>
-        <VideoPlayer
-          url={currentVideoUrl}
-          playing={isPlaying}
-          setPlaying={setIsPlaying}
-          playbackTime={currentPlaybackTime}
-          handleRequest={send}
-          fallbackMessage={fallbackMessage}
-        />
+        <div className="border min-w-64">
+          <ReactPlayer
+            key={currentVideoUrl}
+            url={currentVideoUrl.split("?forceUpdate")[0]}
+            width={"100%"}
+            height={"600px"}
+            // onPlay={handlePlay}
+            playing={isPlaying}
+            fallback={<p className="text-white">Loading...</p>}
+            // muted={isMuted}
+          />
+        </div>
       </div>
     </div>
   );

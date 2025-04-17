@@ -1,7 +1,7 @@
-import RoomContent from "@/components/room-content";
+import RoomSocket from "@/components/room-content";
 import { createClient } from "@/utils/supabase/server";
 
-export default async function Room({
+export default async function Socket({
   params,
 }: {
   params: Promise<{ code: string }>;
@@ -19,5 +19,5 @@ export default async function Room({
     return <div>Error loading room data.</div>;
   }
 
-  return <RoomContent data={rooms} />;
+  return <RoomSocket data={rooms} />;
 }

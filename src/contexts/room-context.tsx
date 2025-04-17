@@ -2,11 +2,8 @@ import React, {
   createContext,
   Dispatch,
   useContext,
-  useEffect,
   useState,
 } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { createClient } from "@/utils/supabase/client";
 
 interface RoomContextType {
   currentRoomCode: string | null;
