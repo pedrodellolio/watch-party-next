@@ -20,12 +20,12 @@ export default function RoomContent({ data }: Props) {
   const [currentProgress, setCurrentProgress] = useState(0);
 
   const { setCurrentRoomCode, logs, pushLog } = useRoom();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   useEffect(() => {
     if (user) {
       setSocketUrl(
-        `ws://localhost:5076/ws?room=${data.code}&userId=${user.id}`
+        `ws://localhost:5076/ws?room=${data.code}&userId=${user.id}&token=${session?.access_token}`
       );
     }
   }, [user, data.code]);
